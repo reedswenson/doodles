@@ -1,0 +1,30 @@
+#!/usr/bin/python3
+
+import argparse, asyncio, configparser, evdev, syslog
+
+argp = argparse.ArgumentParser(description="Pigrrl2 Key Monitor")
+argp.add_argument("-c", "--config_file", help="configuration file name", default="./pigrrl2_keys.config")
+argp.add_argument("-v", "--verbose", help="verbose logging output", action="store_true")
+args = argp.parse_args()
+
+if args.verbose:
+    syslog.syslog(syslog.LOG_DEBUG, "Config File -> " + args.config_file)
+
+config = configparser.ConfigParser()
+config.read(args.config_file)
+
+devices = {}
+
+@asyncio.coroutine
+def handle_event(device):
+    pass
+
+for device in config.sections():
+    d = evdev.InputDevice(device)
+    devices[device] = {}
+    for key in config[device]:
+        code = evdev.ecodes.ecodes[key.upper()]
+        devices[device][code] = config[device][key]
+        if args.verbose:
+            syslog.syslog(syslog.LOG_DEBUG, "Binding: " + device + " - " + key.upper() + "(" + str(code) + "): " + config[device][key])
+    asyncio.async(handle_event(device))
