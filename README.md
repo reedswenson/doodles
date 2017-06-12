@@ -8,4 +8,4 @@ These projects are just my ramblings.  Most are either personal utilities or exp
   * Needs to be double-buffered so that the frame speed remains constant.
   * It would be nice if patterns could be randomly generated, saved, and loaded.
 
-# pigrrl2_keys - A python debian service that will allow scripts to be bound to retropie key bindings.  I use this service to bind mute, volume, and shutdown controls to the TFT screen keys.
+* pigrrl2_keys - A python debian service that will allow scripts to be bound to retropie key bindings.  I use this service to bind mute, volume, and shutdown controls to the TFT screen keys.
