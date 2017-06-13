@@ -1,6 +1,16 @@
 #!/usr/bin/python3
 
-import argparse, asyncio, configparser, evdev, syslog
+import argparse
+import asyncio
+import configparser
+import evdev
+import functools
+import os
+import shlex
+import signal
+import subprocess
+import sys
+import syslog
 
 argp = argparse.ArgumentParser(description="Pigrrl2 Key Monitor")
 argp.add_argument("-c", "--config_file", help="configuration file name", default="./pigrrl2_keys.config")
@@ -14,17 +24,50 @@ config = configparser.ConfigParser()
 config.read(args.config_file)
 
 devices = {}
+open_devices = []
+running = True
+loop = asyncio.get_event_loop()
 
+# Clean things up before we exit.
+def shutdown():
+    syslog.syslog(syslog.LOG_INFO, "Shutting Down")
+    running = False
+    for d in open_devices:
+        syslog.syslog(syslog.LOG_INFO, "\tClosing: " + d.fn)
+        d.close()
+    loop.stop()
+
+# Key listener
 @asyncio.coroutine
 def handle_event(device):
-    pass
+    while running:
+        events = yield from device.async_read()
+        for event in events:
+            if args.verbose:
+                syslog.syslog(syslog.LOG_DEBUG, str(device.fn) + ": " + str(evdev.categorize(event)))
+            if event.type == evdev.ecodes.EV_KEY and event.value > 0:
+                to_run = devices[device.fn][event.code]
+                syslog.syslog(syslog.LOG_INFO, "Running: " + to_run)
+                subprocess.Popen(shlex.split(to_run))
 
+
+# Bind a listener for all configured devices and keys
 for device in config.sections():
     d = evdev.InputDevice(device)
+    open_devices.append(d)
     devices[device] = {}
     for key in config[device]:
         code = evdev.ecodes.ecodes[key.upper()]
         devices[device][code] = config[device][key]
         if args.verbose:
             syslog.syslog(syslog.LOG_DEBUG, "Binding: " + device + " - " + key.upper() + "(" + str(code) + "): " + config[device][key])
-    asyncio.async(handle_event(device))
+    asyncio.async(handle_event(d))
+
+# Register shutdown hooks
+for signame in ('SIGINT', 'SIGTERM'):
+    loop.add_signal_handler(getattr(signal, signame), shutdown)
+
+try:
+    loop.run_forever()
+finally:
+    loop.close()

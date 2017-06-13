@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+
+import alsaaudio
+import argparse
+import sys
+import syslog
+
+argp = argparse.ArgumentParser(description="Python based ALSA volume control")
+argp.add_argument("action", choices=["+", "-", "m"], help="volume action to take")
+argp.add_argument("-v", "--verbose", help="verbose logging output", action="store_true")
+args = argp.parse_args()
+
+delta_volume = 4
+
+mixer = alsaaudio.Mixer(alsaaudio.mixers()[0]) # Grab the mixer for the only soundcard
+
+volume = mixer.getvolume()[0]
+mute = mixer.getmute()[0] == 1
+
+if args.verbose:
+    syslog.syslog(syslog.LOG_DEBUG, "action: " + args.action + " vol: " + str(volume) + " mute: " + str(mute))
+
+if(args.action == '+' and volume < 100 - delta_volume and mute == False): # Volume Up
+    volume += delta_volume
+    mixer.setvolume(volume)
+elif(args.action == '-' and volume > delta_volume and mute == False): # Volume Down
+    volume -= delta_volume
+    mixer.setvolume(volume)
+else: # Mute
+    if mute == True:
+        mixer.setmute(0) # unmute
+    else:
+        mixer.setmute(1) # mute
+
+volume = mixer.getvolume()[0]
+mute = mixer.getmute()[0] == 1
+if args.verbose:
+    syslog.syslog(syslog.LOG_DEBUG, "After -> vol: " + str(volume) + " mute: " + str(mute))
